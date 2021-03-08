@@ -37,7 +37,7 @@ public enum OrcConf {
   ROW_INDEX_STRIDE("orc.row.index.stride",
       "hive.exec.orc.default.row.index.stride", 10000,
       "Define the default ORC index stride in number of rows. (Stride is the\n"+
-          " number of rows n index entry represents.)"),
+          " number of rows an index entry represents.)"),
   BUFFER_SIZE("orc.compress.size", "hive.exec.orc.default.buffer.size",
       256 * 1024, "Define the default ORC buffer size, in bytes."),
   BASE_DELTA_RATIO("orc.base.delta.ratio", "hive.exec.orc.base.delta.ratio", 8,
@@ -105,6 +105,12 @@ public enum OrcConf {
           "(default 10000 rows) else dictionary check will happen before\n" +
           "writing first stripe. In both cases, the decision to use\n" +
           "dictionary or not will be retained thereafter."),
+  DICTIONARY_IMPL("orc.dictionary.implementation", "orc.dictionary.implementation",
+      "rbtree",
+      "the implementation for the dictionary used for string-type column encoding.\n" +
+          "The choices are:\n"
+          + " rbtree - use red-black tree as the implementation for the dictionary.\n"
+          + " hash (yet to be implemented) - use hash table as the implementation for the dictionary."),
   BLOOM_FILTER_COLUMNS("orc.bloom.filter.columns", "orc.bloom.filter.columns",
       "", "List of columns to create bloom filters for when writing."),
   BLOOM_FILTER_WRITE_VERSION("orc.bloom.filter.write.version",

@@ -50,6 +50,7 @@ import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.OrcProto;
+import org.apache.orc.OrcFilterContext;
 import org.apache.orc.impl.reader.ReaderEncryption;
 import org.apache.orc.impl.reader.StripePlanner;
 import org.apache.orc.impl.reader.tree.BatchReader;
@@ -67,7 +68,7 @@ public class TreeReaderFactory {
 
     Set<Integer> getColumnFilterIds();
 
-    Consumer<VectorizedRowBatch> getColumnFilterCallback();
+    Consumer<OrcFilterContext> getColumnFilterCallback();
 
     boolean isSkipCorrupt();
 
@@ -94,7 +95,7 @@ public class TreeReaderFactory {
     private boolean useProlepticGregorian;
     private boolean fileUsedProlepticGregorian;
     private Set<Integer> filterColumnIds = Collections.emptySet();
-    Consumer<VectorizedRowBatch> filterCallback;
+    Consumer<OrcFilterContext> filterCallback;
 
     public ReaderContext setSchemaEvolution(SchemaEvolution evolution) {
       this.evolution = evolution;
@@ -106,7 +107,7 @@ public class TreeReaderFactory {
       return this;
     }
 
-    public ReaderContext setFilterCallback(Set<Integer> filterColumnsList, Consumer<VectorizedRowBatch> filterCallback) {
+    public ReaderContext setFilterCallback(Set<Integer> filterColumnsList, Consumer<OrcFilterContext> filterCallback) {
       this.filterColumnIds = filterColumnsList;
       this.filterCallback = filterCallback;
       return this;
@@ -150,7 +151,7 @@ public class TreeReaderFactory {
     }
 
     @Override
-    public Consumer<VectorizedRowBatch> getColumnFilterCallback() {
+    public Consumer<OrcFilterContext> getColumnFilterCallback() {
       return filterCallback;
     }
 
@@ -245,7 +246,8 @@ public class TreeReaderFactory {
       switch (kind) {
         case DIRECT_V2:
         case DICTIONARY_V2:
-          return new RunLengthIntegerReaderV2(in, signed, context == null ? false : context.isSkipCorrupt());
+          return new RunLengthIntegerReaderV2(in, signed,
+                                              context != null && context.isSkipCorrupt());
         case DIRECT:
         case DICTIONARY:
           return new RunLengthIntegerReader(in, signed);
@@ -1098,13 +1100,13 @@ public class TreeReaderFactory {
   public static class TimestampTreeReader extends TreeReader {
     protected IntegerReader data = null;
     protected IntegerReader nanos = null;
-    private Map<String, Long> baseTimestampMap;
+    private final Map<String, Long> baseTimestampMap;
     protected long base_timestamp;
     private final TimeZone readerTimeZone;
     private final boolean instantType;
     private TimeZone writerTimeZone;
     private boolean hasSameTZRules;
-    private ThreadLocal<DateFormat> threadLocalDateFormat;
+    private final ThreadLocal<DateFormat> threadLocalDateFormat;
     private final boolean useProleptic;
     private final boolean fileUsesProleptic;
 
@@ -1416,7 +1418,7 @@ public class TreeReaderFactory {
     protected InStream valueStream;
     protected IntegerReader scaleReader = null;
     private int[] scratchScaleVector;
-    private byte[] scratchBytes;
+    private final byte[] scratchBytes;
 
     DecimalTreeReader(int columnId,
                       int precision,
@@ -1953,7 +1955,7 @@ public class TreeReaderFactory {
                                          final int batchSize) throws IOException {
       if (result.noNulls || !(result.isRepeating && result.isNull[0])) {
         byte[] allBytes =
-            commonReadByteArrays(stream, lengths, scratchlcv, result, (int) batchSize);
+            commonReadByteArrays(stream, lengths, scratchlcv, result, batchSize);
 
         // Too expensive to figure out 'repeating' by comparisons.
         result.isRepeating = false;
@@ -2213,7 +2215,7 @@ public class TreeReaderFactory {
         scratchlcv.isRepeating = result.isRepeating;
         scratchlcv.noNulls = result.noNulls;
         scratchlcv.isNull = result.isNull;
-        scratchlcv.ensureSize((int) batchSize, false);
+        scratchlcv.ensureSize(batchSize, false);
         reader.nextVector(scratchlcv, scratchlcv.vector, batchSize);
         if (!scratchlcv.isRepeating) {
           // The vector has non-repeating strings. Iterate thru the batch
@@ -2572,7 +2574,7 @@ public class TreeReaderFactory {
     }
   }
 
-  private static FilterContext NULL_FILTER = new FilterContext() {
+  private static final FilterContext NULL_FILTER = new FilterContext() {
     @Override
     public void reset() {
     }
